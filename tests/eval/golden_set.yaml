@@ -1,0 +1,97 @@
+# Эталонный набор для разговорных названий по tests/fixtures/sample_grid.json.
+# `position` / `candidates` это Position.id (строка таблицы, с 1). `today` это фиксированные часы для случаев с датой.
+# случай совпадения: lines[] -> {query, position, value, unit}; `day` это ожидаемая дата отчёта (ISO).
+# случай вопроса:   expect: question; `queries` это фразы, которые выделяет движок;
+#                    `candidates` это строки, которые должны быть среди вариантов для прораба.
+today: "2026-11-03"
+cases:
+  # --- медная труба: диаметр по разговорному размеру ---
+  - {id: cu-6-ka, phrase: "Сегодня проложили медь 6-ку 15 м", expect: match, lines: [{query: "медь 6-ка", position: 17, value: 15, unit: "м"}]}
+  - {id: cu-9-ka, phrase: "медь 9-ка 20 метров", expect: match, lines: [{query: "медь 9-ка", position: 18, value: 20, unit: "м"}]}
+  - {id: cu-12-ka, phrase: "фреонка 12 на 7 метров", expect: match, lines: [{query: "фреонопровод 12", position: 19, value: 7, unit: "м"}]}
+  - {id: cu-dec, phrase: "медная трубка 6,35 - 30 м", expect: match, lines: [{query: "медная трубка 6,35", position: 17, value: 30, unit: "м"}]}
+  - {id: cu-typo, phrase: "мед 9 52 12 м", expect: match, lines: [{query: "мед 9 52", position: 18, value: 12, unit: "м"}]}
+  - {id: cu-ambiguous, phrase: "проложили медь 40 метров", expect: question, queries: ["медь"], candidates: [17, 18, 19]}
+  # --- изоляция ---
+  - {id: ins-6, phrase: "изоляция на фреон 6 - 15 м", expect: match, lines: [{query: "изоляция фреонопровода 6", position: 20, value: 15, unit: "м"}]}
+  - {id: ins-9, phrase: "теплоизоляция 9,52 25 метров", expect: match, lines: [{query: "теплоизоляция 9,52", position: 21, value: 25, unit: "м"}]}
+  - {id: ins-12, phrase: "трубка К-флекс 12.7 10 м", expect: match, lines: [{query: "К-флекс 12.7", position: 22, value: 10, unit: "м"}]}
+  # --- силовой кабель: формы сечения при диктовке ---
+  - {id: cab-3x25-dictation, phrase: "кабель три на два с половиной 20 м", expect: match, lines: [{query: "кабель три на два с половиной", position: 55, value: 20, unit: "м"}]}
+  - {id: cab-3x25-digits, phrase: "кабель 3 на 2,5 - 20 м", expect: match, lines: [{query: "кабель 3 на 2,5", position: 55, value: 20, unit: "м"}]}
+  - {id: cab-3x25-x, phrase: "кабель 3х2.5 двадцать метров", expect: match, lines: [{query: "кабель 3х2.5", position: 55, value: 20, unit: "м"}]}
+  - {id: cab-3x15, phrase: "кабель три на полтора 50 м", expect: match, lines: [{query: "кабель три на полтора", position: 56, value: 50, unit: "м"}]}
+  - {id: cab-4x15, phrase: "кабель 4 на 1,5 30 метров", expect: match, lines: [{query: "кабель 4 на 1,5", position: 57, value: 30, unit: "м"}]}
+  - {id: cab-3x4, phrase: "кабель 3 на 4 - 12 м", expect: match, lines: [{query: "кабель 3 на 4", position: 58, value: 12, unit: "м"}]}
+  - {id: cab-5x6, phrase: "кабель пять на шесть 3 м", expect: match, lines: [{query: "кабель пять на шесть", position: 59, value: 3, unit: "м"}]}
+  - {id: cab-2x15, phrase: "кабель 2 на 1,5 8 м", expect: match, lines: [{query: "кабель 2 на 1,5", position: 60, value: 8, unit: "м"}]}
+  - {id: cab-vvg, phrase: "силовой кабель 3х1,5 - 40 м", expect: match, lines: [{query: "силовой кабель 3х1,5", position: 56, value: 40, unit: "м"}]}
+  - {id: cab-no-section, phrase: "кабель 100 метров", expect: question, queries: ["кабель"], candidates: [55, 56, 57, 58]}
+  - {id: cab-vague-section, phrase: "силовой кабель медный 25 м", expect: question, queries: ["силовой кабель медный"], candidates: [55, 56, 57, 58]}
+  # --- автоматы ---
+  - {id: ab-16, phrase: "автомат на 16 ампер 1 шт", expect: match, lines: [{query: "автомат 16А", position: 61, value: 1, unit: "шт"}]}
+  - {id: ab-20, phrase: "автоматический выключатель 20А - 1", expect: match, lines: [{query: "автоматический выключатель 20А", position: 62, value: 1, unit: "шт"}]}
+  - {id: ab-32, phrase: "поставили автомат тридцать два ампера", expect: match, lines: [{query: "автомат 32А", position: 63, value: 1, unit: "шт"}]}
+  - {id: ab-no-current, phrase: "поставили автоматы 2 шт", expect: question, queries: ["автоматы"], candidates: [61, 62, 63]}
+  # --- труба ПВХ и коробки ---
+  - {id: pipe-20, phrase: "труба пвх 20 - 100 м", expect: match, lines: [{query: "труба ПВХ 20", position: 64, value: 100, unit: "м"}]}
+  - {id: pipe-25, phrase: "труба ПВХ двадцать пять 40 метров", expect: match, lines: [{query: "труба ПВХ 25", position: 65, value: 40, unit: "м"}]}
+  - {id: pipe-no-dia, phrase: "проложили трубу пвх 50 м", expect: question, queries: ["труба ПВХ"], candidates: [64, 65]}
+  - {id: box-90x60, phrase: "короб пвх 90 на 60 - 10 м", expect: match, lines: [{query: "короб ПВХ 90х60", position: 30, value: 10, unit: "м"}]}
+  - {id: box-150x60, phrase: "металлический короб 150х60 5 метров", expect: match, lines: [{query: "короб металлический 150х60", position: 29, value: 5, unit: "м"}]}
+  - {id: box-25x16, phrase: "короб 25 на 16 - 2 штуки", expect: match, lines: [{query: "короб 25х16", position: 67, value: 2, unit: "шт"}]}
+  - {id: box-bare, phrase: "поставили короб 10 м", expect: question, queries: ["короб"], candidates: [29, 30, 67]}
+  # --- дубликаты и почти дубликаты в таблице ---
+  - {id: drill-dup, phrase: "сверление отверстий Д80 - 6 штук", expect: question, queries: ["сверление отверстий Д80"], candidates: [48, 49]}
+  - {id: drill-typo-dup, phrase: "сверлили отверстия 80 4 шт", expect: question, queries: ["сверление отверстий 80"], candidates: [48, 49]}
+  - {id: tee-pp25, phrase: "тройник пп 25 - 3 шт", expect: question, queries: ["тройник ПП 25"], candidates: [36, 37]}
+  # --- кондиционеры и комплектующие ---
+  - {id: unit-k31, phrase: "К3.1 внутренний блок установили 1", expect: match, lines: [{query: "К3.1 внутренний блок", position: 8, value: 1, unit: "шт"}]}
+  - {id: unit-cassette-12, phrase: "кассетный блок К7.1 - 1 шт", expect: match, lines: [{query: "кассетный блок К7.1", position: 11, value: 1, unit: "шт"}]}
+  - {id: unit-panel, phrase: "декоративные панели на кассетники 2 шт", expect: match, lines: [{query: "декоративная панель кассетных блоков", position: 13, value: 2, unit: "шт"}]}
+  - {id: unit-indoor-bare, phrase: "повесили внутренний блок 1", expect: question, queries: ["внутренний блок"], candidates: [6, 8, 10, 15]}
+  - {id: pump-sauer, phrase: "дренажная помпа Sauermann 3 шт", expect: match, lines: [{query: "дренажная помпа Sauermann", position: 25, value: 3, unit: "шт"}]}
+  - {id: heater-drain, phrase: "нагреватель дренажной трубки 4 шт", expect: match, lines: [{query: "нагреватель дренажной трубки", position: 26, value: 4, unit: "шт"}]}
+  - {id: refrigerant, phrase: "заправили хладагент R32 1,2 кг", expect: match, lines: [{query: "хладагент R32", position: 28, value: 1.2, unit: "кг"}]}
+  - {id: siphon, phrase: "сифоны для кондиционеров - 2", expect: match, lines: [{query: "сифон для кондиционера", position: 39, value: 2, unit: "шт"}]}
+  - {id: funnel, phrase: "приёмная воронка 1 шт", expect: match, lines: [{query: "приемная воронка", position: 41, value: 1, unit: "шт"}]}
+  - {id: clamp-drain, phrase: "хомуты на дренаж 40 штук", expect: match, lines: [{query: "хомут для крепления дренажа", position: 43, value: 40, unit: "шт"}]}
+  - {id: stud, phrase: "шпилька м8 метровая 30 шт", expect: match, lines: [{query: "шпилька М8 1000", position: 45, value: 30, unit: "шт"}]}
+  - {id: elbow, phrase: "отвод 90 пп 25 - 5 шт", expect: match, lines: [{query: "отвод 90 ПП Д25", position: 35, value: 5, unit: "шт"}]}
+  - {id: commissioning-multi, phrase: "ПНР мультисплит 2 системы", expect: match, lines: [{query: "ПНР мультисплит", position: 51, value: 2, unit: "сист"}]}
+  - {id: cable-laying-tray, phrase: "прокладка кабелей в коробе 4 метра", expect: match, lines: [{query: "прокладка силовых кабелей в коробе", position: 70, value: 4, unit: "м"}]}
+  - {id: din-mount, phrase: "установили АВ на дин рейку 3", expect: match, lines: [{query: "установка АВ на DIN-рейку", position: 68, value: 3, unit: "шт"}]}
+  # --- названный день: проверяется найденная дата ---
+  - {id: day-yesterday, phrase: "вчера кабель 3 на 2,5 — 20 м", day_phrase: "вчера", day: "2026-11-02", expect: match, lines: [{query: "кабель 3 на 2,5", position: 55, value: 20, unit: "м"}]}
+  - {id: day-2-nov, phrase: "2 ноября медь 6-ка 10 м", day_phrase: "2 ноября", day: "2026-11-02", expect: match, lines: [{query: "медь 6-ка", position: 17, value: 10, unit: "м"}]}
+  - {id: day-day-before, phrase: "позавчера труба пвх 20 - 30 м", day_phrase: "позавчера", day: "2026-11-01", expect: match, lines: [{query: "труба ПВХ 20", position: 64, value: 30, unit: "м"}]}
+  - {id: day-1-nov, phrase: "1 ноября автомат 20А 1 шт", day_phrase: "1 ноября", day: "2026-11-01", expect: match, lines: [{query: "автомат 20А", position: 62, value: 1, unit: "шт"}]}
+  - {id: day-30-oct, phrase: "30 октября короб пвх 90х60 8 м", day_phrase: "30 октября", day: "2026-10-30", expect: match, lines: [{query: "короб ПВХ 90х60", position: 30, value: 8, unit: "м"}]}
+  - {id: day-yesterday-question, phrase: "вчера медь 20 м", day_phrase: "вчера", day: "2026-11-02", expect: question, queries: ["медь"], candidates: [17, 18, 19]}
+  # --- отчёт за день из нескольких работ (как пример из задания) ---
+  - id: multi-report
+    phrase: "Сегодня проложили медь 6-ку 15 м, кабель 3 на 2,5 - 20 м, поставили 2 автомата на 16 ампер и 3 сифона"
+    expect: match
+    lines:
+      - {query: "медь 6-ка", position: 17, value: 15, unit: "м"}
+      - {query: "кабель 3 на 2,5", position: 55, value: 20, unit: "м"}
+      - {query: "автомат 16А", position: 61, value: 2, unit: "шт"}
+      - {query: "сифон для кондиционера", position: 39, value: 3, unit: "шт"}
+  - id: multi-report-dated
+    phrase: "вчера: изоляция 9,52 - 25 м, труба пвх 25 - 40 м, кабель 4х1,5 - 30 м"
+    day: "2026-11-02"
+    day_phrase: "вчера"
+    expect: match
+    lines:
+      - {query: "изоляция 9,52", position: 21, value: 25, unit: "м"}
+      - {query: "труба ПВХ 25", position: 65, value: 40, unit: "м"}
+      - {query: "кабель 4х1,5", position: 57, value: 30, unit: "м"}
+  - id: multi-report-with-question
+    phrase: "кабель 3 на 4 - 10 м, а ещё короб 15 м"
+    expect: question
+    queries: ["короб"]
+    candidates: [29, 30, 67]
+    resolved: [{query: "кабель 3 на 4", position: 58, value: 10, unit: "м"}]
+  # --- неизвестная работа: в спецификации её нет ---
+  - {id: unknown-concrete, phrase: "залили бетон 3 кубометра", expect: question, queries: ["бетон"], candidates: []}
+  - {id: unknown-wall, phrase: "штробили стены 15 метров", expect: question, queries: ["штробление стен"], candidates: []}
