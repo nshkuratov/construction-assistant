@@ -77,7 +77,7 @@ class Harness:
 
     def _update(self, chat_id: int, **payload) -> Update:
         self._update_id += 1
-        user = {"id": chat_id, "is_bot": False, "first_name": "Foreman"}
+        user = payload.get("user") or {"id": chat_id, "is_bot": False, "first_name": "Foreman"}
         chat = {"id": chat_id, "type": "private"}
         body = {"update_id": self._update_id}
         if "callback" in payload:
@@ -159,7 +159,7 @@ async def pick_site(h: Harness, label="Садик", chat_id=CHAT):
 
 async def test_unauthorized_chat_is_refused(harness):
     await harness.text("медь 6-ка 15 м", chat_id=999)
-    assert harness.last_text(999) == REFUSAL
+    assert harness.last_text(999) == REFUSAL.format(chat_id=999)
     assert not harness.store(999).dir.exists()
 
 
@@ -198,6 +198,7 @@ async def test_happy_path_message_card_confirm_both_sinks_and_link(harness):
     await harness.press(harness.card_button("Записать"))
     assert harness.cell("Садик", 17, "T") == (before or 0) + 15
     assert len(harness.crm.entries) == 1
+    assert next(iter(harness.crm.entries.values())).report_author == "Foreman (Telegram ID: 42)"
     summary = harness.sent()[-1]
     assert summary["text"].startswith("✅ Записано")
     assert harness.buttons(summary)["📊 Открыть таблицу"][1] == "https://fake.sheets/Садик"
@@ -210,6 +211,23 @@ async def test_nothing_is_written_without_confirm(harness):
     assert harness.crm.entries == {}
     assert not any(c[0] in ("upsert_entries", "delete_entries") for c in harness.crm.calls)
     assert harness.cell("Садик", 17, "T") in (None, "", 0)
+
+
+async def test_report_author_comes_from_confirming_user_and_survives_crm_retry(harness):
+    await pick_site(harness)
+    await harness.text("медь 6-ку 15 м")
+    harness.crm.fail("upsert_entries")
+    update = harness._update(
+        CHAT, callback=harness.card_button("Записать"),
+        user={"id": 1234, "is_bot": False, "first_name": "Иван", "last_name": "Петров", "username": "ivan"},
+    )
+    await harness.app.process_update(update)
+    expected = "Иван Петров @ivan (Telegram ID: 1234)"
+    pending = harness.store().load_session().last_commit.crm_pending
+    assert pending[0]["entry"]["report_author"] == expected
+    # Повтор нажимает другой пользователь (42), но автор берётся из сохранённой записи.
+    await harness.press(harness.card_button("Повторить Битрикс24"))
+    assert next(iter(harness.crm.entries.values())).report_author == expected
 
 
 async def test_delete_tap_removes_the_line_in_place(harness):

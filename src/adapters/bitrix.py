@@ -122,6 +122,11 @@ class BitrixSink(BitrixClient):
         super().__init__(webhook_url, transport, sleep)
         self._type = entity_type_id
         self._f = fields
+        if "report_author" not in fields:
+            logger.warning(
+                "Нет поля «Автор отчёта» в настройке Битрикс24. "
+                "Запустите python -m src.tools.bitrix_setup --from-sheet и перезапустите бота."
+            )
 
     def _batch(self, ops: list[tuple[str, dict]]) -> None:
         for i in range(0, len(ops), BATCH_LIMIT):
@@ -180,7 +185,7 @@ class BitrixSink(BitrixClient):
     def _fields_of(self, e: CrmEntry) -> dict:
         f = self._f
         amount = round(e.value * e.unit_price, 2) if e.unit_price is not None else None
-        return {
+        fields = {
             "title": f"{e.day.isoformat()} {e.position_name}"[:250],
             f["site"]: e.crm_value_id,
             f["day"]: e.day.isoformat(),
@@ -192,6 +197,10 @@ class BitrixSink(BitrixClient):
             f["volume"]: e.value,
             f["amount"]: amount,
         }
+        # Старые отложенные записи без автора не должны стирать уже известное имя.
+        if e.report_author and "report_author" in f:
+            fields[f["report_author"]] = e.report_author
+        return fields
 
     def _groups(self, entries: list[CrmEntry]) -> dict[tuple[str, date], dict[str, CrmEntry]]:
         groups: dict[tuple[str, date], dict[str, CrmEntry]] = defaultdict(dict)

@@ -60,7 +60,7 @@ class CommitService:
         self._data_dir = data_dir
         self._audit_path = audit_path
 
-    async def commit(self, chat_id: int, draft_id: str, version: int) -> CommitResult:
+    async def commit(self, chat_id: int, draft_id: str, version: int, *, report_author: str = "") -> CommitResult:
         store = SessionStore(chat_id, self._data_dir)
         draft = self._pending_or_done(store, draft_id, version)
         if isinstance(draft, CommitResult):
@@ -71,7 +71,7 @@ class CommitService:
             if isinstance(draft, CommitResult):
                 return draft
             self._check_lines(draft)
-            return await self._commit_locked(store, draft, site)
+            return await self._commit_locked(store, draft, site, report_author)
 
     def _pending_or_done(self, store: SessionStore, draft_id: str, version: int) -> Draft | CommitResult:
         """Ожидающий черновик или первый результат, если именно этот (черновик, версия) уже зафиксирован."""
@@ -101,13 +101,15 @@ class CommitService:
                 return site
         raise CommitRefused("site is gone")
 
-    async def _commit_locked(self, store: SessionStore, draft: Draft, site: Site) -> CommitResult:
+    async def _commit_locked(
+        self, store: SessionStore, draft: Draft, site: Site, report_author: str
+    ) -> CommitResult:
         tab = site.sheet_tab
         try:
             snap = (await asyncio.to_thread(self._gateway.load_snapshots, [tab]))[tab]
             record = self._usable_record(store, draft, snap)
             if record is None:
-                record = self._build_record(draft, site, snap)
+                record = self._build_record(draft, site, snap, report_author)
                 atomic_write_json(str(self._record_path(store)), record)
             cells = record["cells"]
             writes = [CellWrite(position_id=c["position_id"], expected_name=c["name"], value=c["final"]) for c in cells]
@@ -166,7 +168,7 @@ class CommitService:
         return record
 
     @staticmethod
-    def _build_record(draft: Draft, site: Site, snap: CatalogSnapshot) -> dict:
+    def _build_record(draft: Draft, site: Site, snap: CatalogSnapshot, report_author: str = "") -> dict:
         iso = draft.day.isoformat()
         by_id = {p.id: p for p in snap.positions}
         before: dict[int, float | None] = {}
@@ -198,6 +200,7 @@ class CommitService:
                 unit=pos.unit,
                 value=0.0 if value is None else value,
                 unit_price=pos.unit_price,
+                report_author=report_author,
             )
             entries.append(
                 {

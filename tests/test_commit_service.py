@@ -261,6 +261,37 @@ async def test_error_applied_after_the_write_does_not_double_add(sheet_gateway, 
     assert ok.sheets_ok and _value(sheet_gateway, TAB, 5) == 2.0
 
 
+async def test_author_survives_restart_after_sheet_failure_and_updates_on_new_commit(
+    sheet_gateway, crm_sink, tmp_path
+):
+    svc = _service(sheet_gateway, crm_sink, tmp_path)
+    _put_draft(tmp_path, 1, [_line(1, 5, "add", 2.0)])
+    sheet_gateway.fail("write_cells", after_apply=True)
+    failed = await svc.commit(1, "d1", 1, report_author="Иван (Telegram ID: 123)")
+    assert not failed.sheets_ok
+    restarted = _service(sheet_gateway, crm_sink, tmp_path)
+    result = await restarted.commit(1, "d1", 1, report_author="Пётр (Telegram ID: 456)")
+    assert result.crm_ok
+    assert next(iter(crm_sink.entries.values())).report_author == "Иван (Telegram ID: 123)"
+    assert _value(sheet_gateway, TAB, 5) == 2.0
+    _put_draft(tmp_path, 1, [_line(1, 5, "set", 3.0)], draft_id="d2")
+    await restarted.commit(1, "d2", 1, report_author="Пётр (Telegram ID: 456)")
+    assert next(iter(crm_sink.entries.values())).report_author == "Пётр (Telegram ID: 456)"
+
+
+async def test_legacy_pending_entry_without_author_can_be_retried(sheet_gateway, crm_sink, tmp_path):
+    svc = _service(sheet_gateway, crm_sink, tmp_path)
+    store = _put_draft(tmp_path, 1, [_line(1, 5, "add", 2.0)])
+    crm_sink.fail("upsert_entries")
+    await svc.commit(1, "d1", 1)
+    session = store.load_session()
+    session.last_commit.crm_pending[0]["entry"].pop("report_author")
+    store.save_session(session)
+    result = await svc.retry_crm(1)
+    assert result.crm_ok
+    assert next(iter(crm_sink.entries.values())).report_author == ""
+
+
 async def test_crash_between_the_write_and_the_commit_mark_does_not_double_add(
     sheet_gateway, crm_sink, tmp_path, monkeypatch
 ):

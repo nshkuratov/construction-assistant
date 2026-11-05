@@ -53,7 +53,7 @@ from src.utils.timeutil import now_utc
 
 logger = logging.getLogger(__name__)
 
-REFUSAL = "Доступ закрыт. Попросите администратора добавить ваш чат."
+REFUSAL = "Доступ закрыт. Попросите администратора добавить ваш чат (чат ID: {chat_id})."
 BUSY_TEXT = "⏳ Ещё разбираю предыдущее сообщение — обработаю следом"
 WORKING_TEXT = "⏳ Разбираю отчёт…"
 CALLBACK_BUSY = "⏳ Подождите…"
@@ -128,10 +128,11 @@ class BotHandlers:
         if chat is None:
             return None
         if not is_allowed(chat.id, self.allowed):
+            refusal = REFUSAL.format(chat_id=chat.id)
             if update.callback_query is not None:
-                await update.callback_query.answer(REFUSAL, show_alert=True)
+                await update.callback_query.answer(refusal, show_alert=True)
             elif update.effective_message is not None:
-                await update.effective_message.reply_text(REFUSAL)
+                await update.effective_message.reply_text(refusal)
             return None
         return chat.id
 
@@ -407,10 +408,16 @@ class BotHandlers:
             logger.info("ignored callback data %r", query.data)
             return
         message_id = query.message.message_id if query.message else None
+        user = query.from_user
+        name = " ".join(user.full_name.split())
+        username = f" @{user.username}" if user.username else ""
+        report_author = f"{name}{username} (Telegram ID: {user.id})"
         async with self.locks.chat_lock(chat_id):
-            await self._on_action(context.bot, chat_id, action, message_id)
+            await self._on_action(context.bot, chat_id, action, message_id, report_author=report_author)
 
-    async def _on_action(self, bot, chat_id: int, action: Action, message_id: int | None) -> None:
+    async def _on_action(
+        self, bot, chat_id: int, action: Action, message_id: int | None, *, report_author: str = ""
+    ) -> None:
         store = self._store(chat_id)
         listing = await self._listing(bot)
         session = store.load_session()
@@ -428,7 +435,7 @@ class BotHandlers:
             await CardMessenger(bot).plain(chat_id, result.notice)
         intent = result.intent
         if isinstance(intent, CommitIntent):
-            await self._do_commit(bot, chat_id, store, listing, intent)
+            await self._do_commit(bot, chat_id, store, listing, intent, report_author=report_author)
         elif isinstance(intent, CancelIntent):
             store.update_session(self._clear_draft)
             await self._edit_card(bot, chat_id, store, listing, message_id)
@@ -465,11 +472,12 @@ class BotHandlers:
     # ------------------------------------------------------------------ commit
 
     async def _do_commit(
-        self, bot, chat_id: int, store: SessionStore, listing: SiteListing, intent: CommitIntent
+        self, bot, chat_id: int, store: SessionStore, listing: SiteListing, intent: CommitIntent,
+        *, report_author: str = "",
     ) -> None:
         messenger = CardMessenger(bot)
         try:
-            result = await self.commit.commit(chat_id, intent.draft_id, intent.version)
+            result = await self.commit.commit(chat_id, intent.draft_id, intent.version, report_author=report_author)
         except CommitRefused as exc:
             logger.info("commit refused: %s", exc)
             await self._edit_card(bot, chat_id, store, listing)

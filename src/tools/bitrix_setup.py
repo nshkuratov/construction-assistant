@@ -27,6 +27,7 @@ FIELD_SPECS = (
     ("volume", "VOLUME", "double", "Объём"),
     ("amount", "AMOUNT", "double", "Сумма"),
     ("chat_id", "CHAT_ID", "string", "Чат-источник"),
+    ("report_author", "REPORT_AUTHOR", "string", "Автор отчёта"),
     ("position_key", "POSITION_KEY", "string", "Ключ позиции"),
 )
 

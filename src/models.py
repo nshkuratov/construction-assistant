@@ -183,3 +183,4 @@ class CrmEntry(_Strict):
     unit: str = ""
     value: float
     unit_price: float | None = None
+    report_author: str = ""  # пользователь Telegram, подтвердивший запись; пусто для старых записей

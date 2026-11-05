@@ -31,6 +31,7 @@ FIELDS = {
     "unit": "ufCrm5Unit",
     "volume": "ufCrm5Volume",
     "amount": "ufCrm5Amount",
+    "report_author": "ufCrm5ReportAuthor",
 }
 DAY = date(2026, 11, 3)
 
@@ -179,6 +180,7 @@ class Portal:
             "ufCrm5Day": "DAY", "ufCrm5PositionKey": "POSITION_KEY", "ufCrm5Number": "NUMBER", "ufCrm5Name": "NAME",
             "ufCrm5Section": "SECTION", "ufCrm5Unit": "UNIT", "ufCrm5Volume": "VOLUME", "ufCrm5Amount": "AMOUNT",
             "ufCrm5ChatId": "CHAT_ID", "ufCrm5Site": "SITE",
+            "ufCrm5ReportAuthor": "REPORT_AUTHOR",
         }  # fmt: skip
 
 
@@ -215,6 +217,27 @@ def test_create_when_absent_and_fields(sink, portal):
     assert item[FIELDS["amount"]] == 15.0
     assert item[FIELDS["number"]] == 3
     assert item[FIELDS["day"]] == "2026-11-03"
+
+
+@pytest.mark.parametrize("count", [1, 5])
+def test_report_author_is_written_updated_and_not_erased_by_legacy_entries(sink, portal, count):
+    entries = [entry(n) for n in range(count)]
+    author = "Иван Петров @ivan (Telegram ID: 123)"
+    sink.upsert_entries([e.model_copy(update={"report_author": author}) for e in entries])
+    assert {it[FIELDS["report_author"]] for it in portal.items.values()} == {author}
+    second = "Пётр (Telegram ID: 456)"
+    sink.upsert_entries([e.model_copy(update={"report_author": second}) for e in entries])
+    assert {it[FIELDS["report_author"]] for it in portal.items.values()} == {second}
+    sink.upsert_entries(entries)
+    assert {it[FIELDS["report_author"]] for it in portal.items.values()} == {second}
+
+
+def test_old_field_mapping_still_works_with_migration_warning(portal, caplog):
+    fields = {k: v for k, v in FIELDS.items() if k != "report_author"}
+    sink = BitrixSink(URL, 1040, fields, transport=portal.transport())
+    sink.upsert_entries([entry().model_copy(update={"report_author": "Иван"})])
+    assert len(portal.items) == 1
+    assert "bitrix_setup --from-sheet" in caplog.text
 
 
 def test_amount_empty_without_price(sink, portal):
@@ -406,11 +429,27 @@ def test_setup_creates_everything_and_is_idempotent(portal):
     out = bitrix_setup.run_setup(_client(portal), ["Садик", "Школа"])
     assert out["entityTypeId"] == 1040
     assert out["fields"]["site"] == "ufCrm5Site"
+    assert out["fields"]["report_author"] == FIELDS["report_author"]
     assert len(portal.user_fields) == len(bitrix_setup.FIELD_SPECS)
     again = bitrix_setup.run_setup(_client(portal), ["Садик", "Школа"])
     assert again == out
     assert len(portal.types) == 1
     assert len(portal.user_fields) == len(bitrix_setup.FIELD_SPECS)
+
+
+def test_setup_adds_author_to_existing_portal_without_changing_items(portal, sink):
+    bitrix_setup.run_setup(_client(portal), ["Садик"])
+    portal.user_fields = [f for f in portal.user_fields if not f["fieldName"].endswith("_REPORT_AUTHOR")]
+    old_fields = [dict(f) for f in portal.user_fields]
+    sink.upsert_entries([entry()])
+    old_items = {k: dict(v) for k, v in portal.items.items()}
+    for _ in range(2):
+        bitrix_setup.run_setup(_client(portal), ["Садик"])
+    added = [f for f in portal.user_fields if f["fieldName"].endswith("_REPORT_AUTHOR")]
+    assert len(added) == 1
+    assert added[0]["editFormLabel"]["ru"] == "Автор отчёта"
+    assert portal.user_fields[:-1] == old_fields
+    assert portal.items == old_items
 
 
 def test_setup_adds_new_site_and_keeps_old_ids(portal):
