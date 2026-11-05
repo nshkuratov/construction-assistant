@@ -224,11 +224,18 @@ def test_finish_turn_form_and_message_rules(chat):
 
 def test_real_cli_run_reads_back_the_session(chat):
     """Настоящий путь: ``python -m src.mcp.cli`` в новом процессе, затем чтение session.json."""
-    env = {"CA_CHAT_DIR": Config.CA_CHAT_DIR, "CA_TZ": "Europe/Moscow", "PATH": "/usr/bin:/bin"}
+    env = {k: os.environ[k] for k in ("PATH", "SYSTEMROOT", "TEMP", "TMP") if k in os.environ}
+    env.update({
+        "CA_CHAT_DIR": Config.CA_CHAT_DIR,
+        "CA_TZ": "Europe/Moscow",
+        "CA_SKIP_DOTENV": "1",
+        "PYTHONUTF8": "1",
+    })
     out = subprocess.run(
         [sys.executable, "-m", "src.mcp.cli", "propose_draft", "--json", json.dumps({"lines": [line(17, 15)]})],
-        capture_output=True, text=True, env={**env, "RUN_TELEMETRY_LOG": os.devnull}, check=False,
+        capture_output=True, text=True, encoding="utf-8", env={**env, "RUN_TELEMETRY_LOG": os.devnull}, check=False,
     )  # fmt: skip
+    assert out.returncode == 0, out.stdout + out.stderr
     assert json.loads(out.stdout)["ok"] is True, out.stdout + out.stderr
     stored = json.loads((chat.dir / "session.json").read_text(encoding="utf-8"))
     assert stored["draft"]["lines"][0]["position_id"] == 17

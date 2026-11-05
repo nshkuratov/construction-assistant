@@ -1,5 +1,6 @@
 """Рендер конфига CodexEngine, окружение движка, флаги и фабрика."""
 
+import os
 import sys
 import tomllib
 from pathlib import Path
@@ -55,7 +56,13 @@ def test_harness_env_carries_only_the_api_key_and_basics(monkeypatch, tmp_path):
         monkeypatch.setenv(name, "secret")
     monkeypatch.setattr(Config, "DEEPSEEK_API_KEY", "k")
     env = harness_env(tmp_path)
-    assert sorted(env) == ["CODEX_HOME", "DEEPSEEK_API_KEY", "HOME", "PATH"]
+    expected_keys = {"CODEX_HOME", "DEEPSEEK_API_KEY", "HOME", "PATH"}
+    if sys.platform == "win32":
+        # Windows needs these OS variables to start subprocesses; app secrets stay excluded.
+        windows_keys = {"SYSTEMROOT", "USERPROFILE", "APPDATA", "PATHEXT", "TEMP", "TMP", "COMSPEC"}
+        expected_keys.update(windows_keys & os.environ.keys())
+    assert set(env) == expected_keys
+    assert env["DEEPSEEK_API_KEY"] == "k"
     assert env["CODEX_HOME"] == str(tmp_path)
 
 
