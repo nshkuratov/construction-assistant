@@ -1,0 +1,17 @@
+# Запуск: `docker compose up --build`. Секреты берутся из .env; JSON-ключ Google
+# монтируется только для чтения и не попадает в образ.
+services:
+  bot:
+    build: .
+    env_file: .env
+    environment:
+      GOOGLE_SERVICE_ACCOUNT_FILE: /run/secrets/google_service_account.json
+    volumes:
+      - bot-data:/app/data
+      - bot-logs:/app/logs
+      - ./secrets/google_service_account.json:/run/secrets/google_service_account.json:ro
+    restart: unless-stopped
+
+volumes:
+  bot-data:
+  bot-logs:
