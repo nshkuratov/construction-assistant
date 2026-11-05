@@ -1,0 +1,49 @@
+# Шаблон для config.toml в локальном CODEX_HOME запуска. CodexEngine заменяет каждый __NAME__
+# на значение в кавычках TOML (строку или путь), поэтому файл не является валидным TOML до подстановки.
+
+model = __MODEL__
+model_provider = "deepseek"
+model_reasoning_effort = __REASONING_EFFORT__
+approval_policy = "never"
+# Текст прораба недоверенный. У харнесса нет shell и нет прав на запись; MCP-серверы работают
+# вне песочницы codex, поэтому инструменты по-прежнему доступны.
+sandbox_mode = "read-only"
+web_search = "disabled"
+
+[features]
+shell_tool = false
+unified_exec = false
+apps = false
+plugins = false
+multi_agent = false
+hooks = false
+view_image = false
+
+[model_providers.deepseek]
+name = "DeepSeek"
+base_url = "https://api.deepseek.com/v1"
+env_key = "DEEPSEEK_API_KEY"
+# Строки wire_api нет: codex-cli 0.149 и новее отклоняют "chat", а DeepSeek поддерживает только chat completions.
+
+[mcp_servers.construction-assistant]
+command = __PYTHON__
+args = ["-m", "src.mcp"]
+cwd = __REPO_ROOT__
+startup_timeout_sec = 60
+tool_timeout_sec = 60
+# При approval_policy "never" вызов MCP отклоняется, если сервер не одобрен заранее. Наши инструменты
+# детерминированы, и ни один не пишет в хранилища, поэтому одобрять их безопасно.
+default_tools_approval_mode = "approve"
+
+[mcp_servers.construction-assistant.env]
+CA_SKIP_DOTENV = "1"
+PYTHONPATH = __REPO_ROOT__
+CA_CHAT_DIR = __CHAT_DIR__
+CA_DATA_DIR = __DATA_DIR__
+FRICTION_LOG = __FRICTION_LOG__
+RUN_TELEMETRY_LOG = __TELEMETRY_LOG__
+CA_TZ = __TZ__
+HISTORY_TURNS = __HISTORY_TURNS__
+SNAPSHOT_MAX_AGE_S = __SNAPSHOT_MAX_AGE_S__
+ENABLE_RUN_TELEMETRY = __ENABLE_TELEMETRY__
+MCP_MAX_TOOL_CALLS_PER_RUN = __MAX_CALLS__
