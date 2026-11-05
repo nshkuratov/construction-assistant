@@ -81,6 +81,21 @@ def _clear_operator_env(monkeypatch, tmp_path):
     monkeypatch.setattr(Config, "RUN_TELEMETRY_LOG", str(tmp_path / "telemetry.jsonl"))
 
 
+@pytest.fixture(autouse=True)
+def _audit_log_in_tmp(monkeypatch, tmp_path):
+    """``CommitService`` по умолчанию пишет аудит в ``logs/commits.jsonl``; тест не должен до него дотянуться."""
+    from src.services.commit import CommitService
+
+    original = CommitService.__init__
+
+    def init(self, *args, **kwargs):
+        if len(args) < 6:
+            kwargs.setdefault("audit_path", str(tmp_path / "commits.jsonl"))
+        original(self, *args, **kwargs)
+
+    monkeypatch.setattr(CommitService, "__init__", init)
+
+
 @pytest.fixture
 def sample_grid() -> list[list]:
     """Свежая глубокая копия образца таблицы (формулы как текст, даты как строки ISO)."""
